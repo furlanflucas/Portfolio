@@ -23,23 +23,25 @@ locations = ["New York", "Los Angeles", "Chicago", "Houston", "San Francisco", "
 # List of payment methods
 payment_methods = ["Credit Card", "Debit Card", "PayPal", "Bitcoin"]
 
-# Function to generate synthetic transaction data
-def generate_transaction():
-    return {
-        "transaction_id": str(uuid.uuid4()),
-        "user_id": random.randint(1000, 9999),  # Simulated unique users
-        "amount": round(random.uniform(1, 5000), 2),  # Transaction amount between $1 and $5000
-        "timestamp": datetime.utcnow().isoformat(),  # ISO format timestamp
-        "merchant_category": random.choice(merchant_categories),
-        "location": random.choice(locations),
-        "payment_method": random.choice(payment_methods),
-        "is_fraud": random.choices([0, 1], weights=[0.98, 0.02], k=1)[0]  # 2% fraud rate
-    }
+# Define transaction generator as a lambda function
+generate_transaction = lambda: {
+    "transaction_id": str(uuid.uuid4()),
+    "user_id": random.randint(1000, 9999),
+    "amount": round(random.uniform(1, 5000), 2),
+    "timestamp": datetime.utcnow().isoformat(),
+    "merchant_category": random.choice([
+        "Electronics", "Groceries", "Clothing", "Gas Station", "Online Purchase",
+        "Subscription Service", "Luxury Goods", "Fast Food", "Travel", "Entertainment"
+    ]),
+    "location": random.choice(["New York", "Los Angeles", "Chicago", "Houston", "San Francisco", "Miami", "Seattle"]),
+    "payment_method": random.choice(["Credit Card", "Debit Card", "PayPal", "Bitcoin"]),
+    "is_fraud": random.choices([0, 1], weights=[0.98, 0.02], k=1)[0]
+}
 
-# Continuous data streaming
+# Continuous data streaming with exception handling
 try:
     while True:
-        transaction = generate_transaction()
+        transaction = generate_transaction()  # Generate transaction using lambda
         producer.send('transaction-events', value=transaction)
         print(f"Sent: {json.dumps(transaction, indent=2)}")
         time.sleep(1)  # Send every second
