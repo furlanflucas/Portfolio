@@ -64,6 +64,3 @@ Each project folder contains a **README** with:
 I’m always open to discussing data projects, collaboration opportunities, and best practices. Feel free to explore my projects, review the code, and reach out! 🚀  
 
 
-## 💡 **AI-Assisted Development**  
-Some aspects of troubleshooting, documentation, and optimizations were refined using AI tools like ChatGPT. This helped speed up debugging and enhance explanations, but all implementations and decision-making remain my own.
-
