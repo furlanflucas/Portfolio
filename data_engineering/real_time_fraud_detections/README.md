@@ -1,116 +1,141 @@
-# Real-Time Fraud Detection Pipeline
+# 🚀 Real-Time Fraud Detection with AWS, Kafka, Spark, and Machine Learning  
 
 ## 🚧 Project Status: In Development
 *Note: This project is still being built. Features and components may be subject to change.*
 
-## 📌 Project Overview
-This project implements a real-time fraud detection pipeline using Apache Kafka, Apache Spark Streaming, Apache Airflow, and cloud data warehouses such as AWS Redshift or Snowflake. The goal is to detect fraudulent transactions in real-time by ingesting and processing streaming data efficiently.
+## 📌 Project Overview  
+This project demonstrates how to detect fraudulent transactions **in real-time** using **AWS services, Apache Kafka (MSK), Apache Spark (EMR), and SageMaker for ML model inference**. The goal is to provide a working pipeline that ingests, processes, classifies, and stores transaction data efficiently.  
 
-## 🏗 Architecture Overview
-The data pipeline follows this flow:
-1. **Kafka Producer** generates and streams synthetic transaction data.
-2. **Airflow DAGs** orchestrate the pipeline, managing data flow between components.
-3. **Spark Structured Streaming** processes and detects fraudulent transactions.
-4. **Processed data is stored** in Redshift/Snowflake for analysis.
-5. **SQL queries** analyze and flag suspicious transactions.
+## 🎯 Objectives  
+✅ **Ingest streaming transaction data** using Apache Kafka (MSK).  
+✅ **Process transaction streams** with Apache Spark on AWS EMR.  
+✅ **Apply a trained machine learning model** to classify transactions as fraudulent or not.  
+✅ **Store fraud detection results** in a database (AWS RDS or DynamoDB).  
+✅ **Trigger alerts** for detected fraud using AWS Lambda.  
 
-![Architecture Diagram](docs/architecture_diagram.png)
+---
 
-## 📂 Folder Structure
-```
-real-time-fraud-detection/
-├── dags/                          # Airflow DAGs for orchestration
-│   ├── transaction_pipeline.py    # DAG to run end-to-end fraud detection pipeline
-│   ├── kafka_to_s3_dag.py         # DAG to stream Kafka data to S3
-│   ├── spark_processing_dag.py    # DAG to process streaming data with Spark
-│   ├── redshift_loader.py         # DAG to load processed data into Redshift
-│
-├── kafka/                         # Kafka setup and producers
-│   ├── transaction_producer.py    # Python script to produce transactions to Kafka
-│   ├── kafka_docker_setup.sh      # Script to set up Kafka in Docker
-│
-├── spark/                         # Spark Streaming scripts
-│   ├── fraud_detection.py         # Spark job to process streaming data
-│   ├── spark_submit.sh            # Script to submit Spark jobs
-│
-├── infrastructure/                 # Terraform or CloudFormation scripts
-│   ├── terraform_kafka.tf         # Infrastructure as Code (Kafka setup)
-│   ├── terraform_redshift.tf      # Infra setup for Redshift/Snowflake
-│   ├── airflow_docker_compose.yml # Airflow setup in Docker
-│
-├── sql/                           # SQL scripts for database setup & queries
-│   ├── create_redshift_tables.sql # SQL to create Redshift fraud tables
-│   ├── fraud_queries.sql          # SQL queries for fraud analysis
-│
-├── config/                        # Configuration files
-│   ├── kafka_config.json          # Kafka connection settings
-│   ├── redshift_config.json       # Redshift/Snowflake credentials
-│   ├── airflow_config.py          # Airflow environment variables
-│
-├── notebooks/                     # Jupyter Notebooks for testing
-│   ├── exploratory_analysis.ipynb # Data exploration on transactions
-│
-├── tests/                         # Unit and integration tests
-│   ├── test_kafka_producer.py     # Unit test for Kafka producer
-│   ├── test_spark_processing.py   # Unit test for Spark transformations
-│   ├── test_redshift_loader.py    # Unit test for data loading
-│
-├── datasets/                      # Sample data for testing
-│   ├── transactions_sample.csv    # Sample transaction dataset
-│
-├── docs/                          # Documentation
-│   ├── architecture_diagram.png   # Diagram of data pipeline architecture
-│   ├── pipeline_overview.md       # High-level explanation of the pipeline
-│
-├── README.md                      # Project documentation
-├── requirements.txt               # Python dependencies
-├── Dockerfile                     # Docker containerization setup
-├── .gitignore                      # Ignore unnecessary files
-```
+## 🛠 Tech Stack  
+| Technology  | Purpose  |
+|------------|--------------------------|
+| **AWS MSK (Kafka)** | Real-time data ingestion  |
+| **AWS EMR (Spark Streaming)** | Processing Kafka streams  |
+| **AWS S3** | Storing raw and processed data  |
+| **AWS SageMaker** | ML model training & deployment  |
+| **AWS Lambda** | Triggering alerts on fraud detection  |
+| **AWS RDS / DynamoDB** | Storing fraud detection results  |
 
-## 🚀 Setup & Installation
+---
 
-### 1️⃣ Clone the Repository
+## 📌 Steps to Build the Project  
+
+### 🏁 Step 1: Set Up Kafka (AWS MSK)  
+Kafka is used to **collect and distribute** transaction data streams to different consumers.  
+
+#### 🛠 **Create an MSK Cluster**  
+1. Navigate to AWS Console → **MSK** → **Create Cluster**.  
+2. Select **"Custom Create"**, and use **"Provisioned"** for Cluster Type.  
+3. Choose at least **3 broker nodes** (e.g., `t3.small` for testing).  
+4. Enable **public access** for easier testing.  
+5. Click **Create Cluster**.  
+
+#### 🛠 **Create a Kafka Topic**  
 ```bash
-git clone https://github.com/your-username/real-time-fraud-detection.git
-cd real-time-fraud-detection
+kafka-topics.sh --create --zookeeper <zookeeper_connect_string> \
+--replication-factor 1 --partitions 3 --topic transaction-events
 ```
+📌 This topic (`transaction-events`) will hold transaction data.  
 
-### 2️⃣ Install Dependencies
+#### 🛠 **Produce Transaction Data**  
+```python
+from kafka import KafkaProducer
+import json
+import random
+import time
+
+producer = KafkaProducer(
+    bootstrap_servers=['<MSK_BROKER_URL>'],
+    value_serializer=lambda v: json.dumps(v).encode('utf-8')
+)
+
+while True:
+    transaction = {
+        "transaction_id": random.randint(1000, 9999),
+        "user_id": random.randint(1, 100),
+        "amount": round(random.uniform(10, 1000), 2),
+        "timestamp": time.time(),
+        "is_fraud": random.choice([0, 1])  # Simulated labels
+    }
+    producer.send('transaction-events', value=transaction)
+    print(f"Sent: {transaction}")
+    time.sleep(1)  # Send every second
+```
+📌 Replace `<MSK_BROKER_URL>` with your MSK broker address.  
+
+---
+
+### 🚀 Step 2: Process Streaming Data with Spark on EMR  
+Apache Spark Streaming allows us to process real-time transaction events.  
+
+#### 🛠 **Launch an EMR Cluster**  
+1. Go to **AWS EMR** → **Create Cluster**.  
+2. Choose **"Go to Advanced Options"**.  
+3. Select **Spark** as the application.  
+4. Choose an instance type like **m5.xlarge**.  
+5. Enable **Auto-terminate** (optional for cost control).  
+6. Click **Create Cluster**.  
+
+#### 🛠 **Write a Spark Streaming Script**  
+```python
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col
+from pyspark.sql.types import StructType, IntegerType, DoubleType, LongType
+from pyspark.ml.classification import LogisticRegressionModel
+
+spark = SparkSession.builder.appName("FraudDetection").getOrCreate()
+
+schema = StructType() \
+    .add("transaction_id", IntegerType()) \
+    .add("user_id", IntegerType()) \
+    .add("amount", DoubleType()) \
+    .add("timestamp", LongType()) \
+    .add("is_fraud", IntegerType())
+
+transactions = spark.readStream.format("kafka") \
+    .option("kafka.bootstrap.servers", "<MSK_BROKER_URL>") \
+    .option("subscribe", "transaction-events") \
+    .load()
+
+transaction_df = transactions \
+    .selectExpr("CAST(value AS STRING)") \
+    .selectExpr("json_tuple(value, 'transaction_id', 'user_id', 'amount', 'timestamp', 'is_fraud') as (transaction_id, user_id, amount, timestamp, is_fraud)") \
+    .select(col("transaction_id").cast(IntegerType()),
+            col("user_id").cast(IntegerType()),
+            col("amount").cast(DoubleType()),
+            col("timestamp").cast(LongType()),
+            col("is_fraud").cast(IntegerType()))
+
+model = LogisticRegressionModel.load("s3://your-bucket/fraud_model")
+predictions = model.transform(transaction_df)
+
+query = predictions.writeStream.outputMode("append").format("console").start()
+query.awaitTermination()
+```
+📌 Replace `<MSK_BROKER_URL>` with your broker details.  
+
+#### 🛠 **Submit the Spark Job**  
 ```bash
-pip install -r requirements.txt
+spark-submit fraud_detection_spark.py
 ```
+## 📌 Next Steps  
+✅ Automate model retraining with SageMaker Pipelines.  
+✅ Optimize Spark performance with partitioning.  
+✅ Implement Lambda alerts for high fraud detection.  
 
-### 3️⃣ Start Kafka (Docker-based setup)
-```bash
-cd kafka
-bash kafka_docker_setup.sh
-```
+---
 
-### 4️⃣ Start Airflow
-```bash
-cd infrastructure
-docker-compose -f airflow_docker_compose.yml up -d
-```
+## 📌 Conclusion  
+This project demonstrates **real-time fraud detection** by integrating **Kafka, Spark Streaming, and AWS SageMaker**. The system **ingests, processes, classifies, and stores** transaction data with fraud predictions.  
 
-### 5️⃣ Submit Spark Job
-```bash
-cd spark
-bash spark_submit.sh
-```
-
-## 📌 Running the Pipeline
-1. **Ensure Kafka is running.**
-2. **Start Airflow and trigger DAGs.**
-3. **Run Spark job for real-time fraud detection.**
-4. **Load processed data into Redshift/Snowflake.**
-5. **Analyze fraud trends using SQL queries.**
-
-## ✅ Next Steps
-1️⃣ Implement Machine Learning models for fraud detection.
-2️⃣ Deploy the system on AWS/GCP using Kubernetes.
-3️⃣ Optimize performance by tuning Spark and Redshift queries.
-
-## 📌 Contribution
-If you'd like to contribute, feel free to open an issue or submit a pull request! 🚀
-
+## 📩 Contact & Contributions  
+💡 **Feel free to fork, contribute, or reach out for discussions!** 🚀  
